@@ -5,8 +5,10 @@ Created on Mon Jan 14 15:32:52 2019
 """
 
 # python -m nltk.downloader -> download all
+# $ pip install langdetect
 
-#go through the object vector instead of counting with nr
+
+# TODO go through the object vector instead of counting with nr
 
 import json
 from sklearn.cluster import KMeans
@@ -15,6 +17,7 @@ import pandas as pd
 import re
 import tensorflow_hub as hub
 import tensorflow as tf
+from langdetect import detect
 
 def ldaResultsForCluster(cluster):
     for idx, topic in lda_models[cluster].print_topics(-1):
@@ -44,27 +47,30 @@ preprocessedDocumentsList = []
 nrOfTranscriptsToProcess = 45000
 
 for i in range(1,nrOfTranscriptsToProcess):
-    if data[i]["transcription"] is not "" and len(data[i]["transcription"])>6000:
-        preprocessedTranscript = preprocess(data[i]["transcription"])
-        documents.append(preprocessedTranscript)
-        wordList = re.sub("[^\w]", " ",  preprocessedTranscript).split()
-        words = []
-        for word in wordList:
-            words.append(word)
-        preprocessedDocumentsList.append(words)
+    try:
+        if data[i]["transcription"] is not "" and detect(data[i]["transcription"])=='en':
+            preprocessedTranscript = preprocess(data[i]["transcription"])
+            documents.append(preprocessedTranscript)
+            wordList = re.sub("[^\w]", " ",  preprocessedTranscript).split()
+            words = []
+            for word in wordList:
+                words.append(word)
+            preprocessedDocumentsList.append(words)
+    except:
+        print("unable to detect",i)
 
 #Using word embedding on all the transcripts
 embed = hub.Module("https://tfhub.dev/google/nnlm-es-dim128-with-normalization/1")
   
-X = []
+embeddedDocuments = []
 with tf.Session() as session:
     session.run([tf.global_variables_initializer(), tf.tables_initializer()])
-    X = session.run(embed(documents))        
+    embeddedDocuments = session.run(embed(documents))        
 
 #Clustering
 true_k = 3
 model = KMeans(n_clusters=true_k, init='k-means++', max_iter=300, n_init=3,verbose=True)
-model.fit(X)
+model.fit(embeddedDocuments)
 
 #Separating the transcript variables according to the cluster they belong into 
 
@@ -76,7 +82,7 @@ for i in range(true_k):
 nr=0
 for i in range(1,nrOfTranscriptsToProcess):
     if data[i]["transcription"] is not "":
-        prediction = model.predict(X[nr].reshape(1,-1))
+        prediction = model.predict(embeddedDocuments[nr].reshape(1,-1))
         preprocessedListForDictionary[prediction[0]].append(preprocessedDocumentsList[nr])
         nr+=1
 
@@ -85,7 +91,7 @@ clusterWords = [None] * true_k
 dictionary = []
 for i in range(true_k):
     dictionary.append(gensim.corpora.Dictionary(preprocessedListForDictionary[i]))
-    dictionary[i].filter_extremes(no_below=15, no_above=0.3, keep_n=100000)
+    dictionary[i].filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
     clusterWords[i]=[]
     
 lda_models = [None] * true_k
@@ -103,7 +109,7 @@ querryDataFrame = pd.DataFrame(columns=['VideoID','Assigned Cluster','LDA Scores
 nr=0
 for i in range(1,nrOfTranscriptsToProcess):
     if data[i]["transcription"] is not "":
-        prediction = model.predict(X[nr].reshape(1,-1))
+        prediction = model.predict(embeddedDocuments[nr].reshape(1,-1))
         nr+=1
         wordList = re.sub("[^\w]", " ",  data[i]["transcription"]).split()
         words = []
