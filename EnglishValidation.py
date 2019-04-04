@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jan 14 15:32:52 2019
+Created on 4th of April
 @author: Mickey
 """
 
@@ -17,6 +17,9 @@ import pandas as pd
 import re
 import tensorflow_hub as hub
 import tensorflow as tf
+import urllib.request  
+from bs4 import BeautifulSoup
+import urllib
 
 def ldaResultsForCluster(cluster):
     for idx, topic in lda_models[cluster].print_topics(-1):
@@ -37,6 +40,20 @@ def preprocess(text):
             result=result+' '+token
     return result
 
+def getEnglishTranscriptForId(videoId):
+    transcriptLink = "https://media.upv.es/rest/plugins/admin-plugin-translectures/dfxp/"+data[videoId]["_id"]+"/en"
+    try:
+        uf = urllib.request.urlopen(transcriptLink)
+    except:
+        print("Transcript ", i," didn't work.")
+    html = uf.read()
+    rawText = BeautifulSoup(html).get_text()
+    result = ""
+    for token in gensim.utils.simple_preprocess(rawText):
+        result=result+' '+token
+    return result
+
+
 #Opening the file with all the data about the videos.
 with open('videos_upv_cleaned.json') as f:
 	data = json.load(f)
@@ -49,7 +66,14 @@ nrOfTranscriptsToProcess = 45000
 nr=0
 for i in range(1,nrOfTranscriptsToProcess):
     if data[i]["transcription"] is not "" and len(data[i]["transcription"])>6000:
-        preprocessedTranscript = preprocess(data[i]["transcription"])
+        transcriptLink = "https://media.upv.es/rest/plugins/admin-plugin-translectures/dfxp/"+data[i]["_id"]+"/en"
+        try:
+            uf = urllib.request.urlopen(transcriptLink)
+        except:
+            print("Transcript ", i," didn't work.")
+        html = uf.read()
+        rawText = BeautifulSoup(html).get_text()
+        preprocessedTranscript = preprocess(rawText)
         videoIdDictionary[nr]=i
         nr+=1
         documents.append(preprocessedTranscript)
@@ -60,7 +84,7 @@ for i in range(1,nrOfTranscriptsToProcess):
         preprocessedDocumentsList.append(words)
 
 #Using word embedding on all the transcripts
-embed = hub.Module("https://tfhub.dev/google/nnlm-es-dim128-with-normalization/1")
+embed = hub.Module("https://tfhub.dev/google/nnlm-en-dim128-with-normalization/1")
   
 embeddedDocuments = []
 with tf.Session() as session:
@@ -115,7 +139,7 @@ for index, document in enumerate(embeddedDocuments):
         querryDataFrame = querryDataFrame.append(newLine,ignore_index = True)
 
 
-querry = 'circuito integrado chip microchip transistores'
+querry = 'computer science and algorithms, data structures'
 embeddedQuery=[]
 with tf.Session() as session:
     session.run([tf.global_variables_initializer(), tf.tables_initializer()])
@@ -147,6 +171,6 @@ import operator
 sortedScores = sorted(scoreDifferences.items(), key=operator.itemgetter(1))
 
 # Priting the top 5 transcripts with their scores.
-for score in sortedScores[:5]:
+for score in sortedScores[:3]:
     print(score)
-    print(data[score[0]]["transcription"])
+    print(getEnglishTranscriptForId(score[0]))
