@@ -6,6 +6,8 @@ Created on Mon Jan 14 15:32:52 2019
 
 # python -m nltk.downloader -> download all
 # $ pip install langdetect
+# $ pip install tensorflow_hub
+# $ pip install tensorflow
 
 
 # TODO go through the object vector instead of counting with nr
@@ -35,6 +37,42 @@ def preprocess(text):
     for token in gensim.utils.simple_preprocess(text):
         if token not in gensim.parsing.preprocessing.STOPWORDS and len(token) > 3:
             result=result+' '+token
+    return result
+
+def resultForQuery(query):
+    embeddedQuery=[]
+    with tf.Session() as session:
+        session.run([tf.global_variables_initializer(), tf.tables_initializer()])
+        embeddedQuery = session.run(embed([query]))
+    querryCluster = model.predict(embeddedQuery)[0]
+    wordList = re.sub("[^\w]", " ", query).split()
+    words = []
+    for word in wordList:
+        words.append(word)
+    bow_corpus_querry = dictionary[querryCluster].doc2bow(words)
+    querryScoresList = lda_models[querryCluster][bow_corpus_querry]
+    querryScores = {}
+    for score in querryScoresList:
+        querryScores[score[0]]=score[1]
+        
+    scoreDifferences = {}
+    for index,entry in querryDataFrame.iterrows():
+        if entry['Assigned Cluster'] == querryCluster:
+            totalScore=0
+            for score in querryDataFrame.at[index,'LDA Scores']:
+                if score[0] in querryScores:
+                    totalScore += abs(score[1]-querryScores[score[0]])
+                else:
+                    totalScore +=0.1
+            scoreDifferences[entry['VideoID']]=totalScore
+    
+    import operator    
+    sortedScores = sorted(scoreDifferences.items(), key=operator.itemgetter(1))
+    
+    result = ''
+    # Creating a string with the top 5 transcripts with their scores.
+    for score in sortedScores[:5]:
+        result = result + str(score) +'\n'   
     return result
 
 #Opening the file with all the data about the videos.
@@ -115,38 +153,4 @@ for index, document in enumerate(embeddedDocuments):
         querryDataFrame = querryDataFrame.append(newLine,ignore_index = True)
 
 
-querry = 'circuito integrado chip microchip transistores'
-embeddedQuery=[]
-with tf.Session() as session:
-    session.run([tf.global_variables_initializer(), tf.tables_initializer()])
-    embeddedQuery = session.run(embed([querry]))
-querryCluster = model.predict(embeddedQuery)[0]
-wordList = re.sub("[^\w]", " ", querry).split()
-words = []
-for word in wordList:
-    words.append(word)
-bow_corpus_querry = dictionary[querryCluster].doc2bow(words)
-querryScoresList = lda_models[querryCluster][bow_corpus_querry]
-querryScores = {}
-for score in querryScoresList:
-    querryScores[score[0]]=score[1]
-    
-    
-scoreDifferences = {}
-for index,entry in querryDataFrame.iterrows():
-    if entry['Assigned Cluster'] == querryCluster:
-        totalScore=0
-        for score in querryDataFrame.at[index,'LDA Scores']:
-            if score[0] in querryScores:
-                totalScore += abs(score[1]-querryScores[score[0]])
-            else:
-                totalScore +=0.1
-        scoreDifferences[entry['VideoID']]=totalScore
-
-import operator    
-sortedScores = sorted(scoreDifferences.items(), key=operator.itemgetter(1))
-
-# Priting the top 5 transcripts with their scores.
-for score in sortedScores[:5]:
-    print(score)
-    print(data[score[0]]["transcription"])
+#querry = 'circuito integrado chip microchip transistores'
