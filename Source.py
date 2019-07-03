@@ -10,8 +10,6 @@ Created on Mon Jan 14 15:32:52 2019
 # $ pip install tensorflow
 
 
-# TODO go through the object vector instead of counting with nr
-
 import json
 from sklearn.cluster import KMeans
 import gensim
@@ -19,6 +17,8 @@ import pandas as pd
 import re
 import tensorflow_hub as hub
 import tensorflow as tf
+
+#Function that returns the Topics of an LDA model and the words with the scores that form the topic.
 
 def ldaResultsForCluster(cluster):
     for idx, topic in lda_models[cluster].print_topics(-1):
@@ -32,6 +32,7 @@ def showDictionaryWords(dictionaryNumber,nrOfWordsToShow):
         if count > nrOfWordsToShow:
             break
 
+#Function for tokenization
 def preprocess(text):
     result = ""
     for token in gensim.utils.simple_preprocess(text):
@@ -39,6 +40,7 @@ def preprocess(text):
             result=result+' '+token
     return result
 
+#Function that returns the result for a query
 def resultForQuery(query):
     embeddedQuery=[]
     with tf.Session() as session:
@@ -84,6 +86,7 @@ preprocessedDocumentsList = []
 videoIdDictionary = {}
 nrOfTranscriptsToProcess = 45000
 
+#Creating the bag of words and the input for NNLM
 nr=0
 for i in range(1,nrOfTranscriptsToProcess):
     if data[i]["transcription"] is not "" and len(data[i]["transcription"])>6000:
@@ -97,7 +100,7 @@ for i in range(1,nrOfTranscriptsToProcess):
             words.append(word)
         preprocessedDocumentsList.append(words)
 
-#Using word embedding on all the transcripts
+#Using word embedding algorithm on all the transcripts and creating the matrix
 embed = hub.Module("https://tfhub.dev/google/nnlm-es-dim128-with-normalization/1")
   
 embeddedDocuments = []
@@ -105,8 +108,8 @@ with tf.Session() as session:
     session.run([tf.global_variables_initializer(), tf.tables_initializer()])
     embeddedDocuments = session.run(embed(documents))        
 
-#Clustering
-numberOfClusters = 4
+#Creating the cluster model to cluster the transcripts into 3 clusters(the domains)
+numberOfClusters = 3
 model = KMeans(n_clusters=numberOfClusters, init='k-means++', max_iter=300, n_init=3,verbose=True)
 model.fit(embeddedDocuments)
 
@@ -152,5 +155,3 @@ for index, document in enumerate(embeddedDocuments):
                                columns=['VideoID','Assigned Cluster','LDA Scores'])
         querryDataFrame = querryDataFrame.append(newLine,ignore_index = True)
 
-
-#querry = 'circuito integrado chip microchip transistores'
