@@ -18,18 +18,20 @@ import re
 import tensorflow_hub as hub
 import tensorflow as tf
 
+word_list_sub_syntax = "[^\w]"
+
 #Function that returns the Topics of an LDA model and the words with the scores that form the topic.
 
-def ldaResultsForCluster(cluster):
+def lda_results_for_cluster(cluster):
     for idx, topic in lda_models[cluster].print_topics(-1):
         print('Topic: {} \nWords: {}'.format(idx, topic))
 
-def showDictionaryWords(dictionaryNumber,nrOfWordsToShow):
+def show_dictionary_words(dictionary_number,nr_of_words_to_show):
     count = 0
-    for k, v in dictionary[dictionaryNumber].iteritems():
+    for k, v in dictionary[dictionary_number].iteritems():
         print(k, v)
         count += 1
-        if count > nrOfWordsToShow:
+        if count > nr_of_words_to_show:
             break
 
 #Function for tokenization
@@ -41,39 +43,39 @@ def preprocess(text):
     return result
 
 #Function that returns the result for a query
-def resultForQuery(query):
-    embeddedQuery=[]
+def result_for_query(query):
+    embedded_query=[]
     with tf.Session() as session:
         session.run([tf.global_variables_initializer(), tf.tables_initializer()])
-        embeddedQuery = session.run(embed([query]))
-    querryCluster = model.predict(embeddedQuery)[0]
-    wordList = re.sub("[^\w]", " ", query).split()
+        embedded_query = session.run(embed([query]))
+    query_cluster = model.predict(embedded_query)[0]
+    word_list = re.sub(word_list_sub_syntax, " ", query).split()
     words = []
-    for word in wordList:
+    for word in word_list:
         words.append(word)
-    bow_corpus_querry = dictionary[querryCluster].doc2bow(words)
-    querryScoresList = lda_models[querryCluster][bow_corpus_querry]
-    querryScores = {}
-    for score in querryScoresList:
-        querryScores[score[0]]=score[1]
+    bow_corpus_querry = dictionary[query_cluster].doc2bow(words)
+    query_scores_list = lda_models[query_cluster][bow_corpus_querry]
+    querry_scores = {}
+    for score in query_scores_list:
+        querry_scores[score[0]]=score[1]
         
-    scoreDifferences = {}
+    score_differences = {}
     for index,entry in querryDataFrame.iterrows():
-        if entry['Assigned Cluster'] == querryCluster:
-            totalScore=0
+        if entry['Assigned Cluster'] == query_cluster:
+            total_score=0
             for score in querryDataFrame.at[index,'LDA Scores']:
-                if score[0] in querryScores:
-                    totalScore += abs(score[1]-querryScores[score[0]])
+                if score[0] in querry_scores:
+                    total_score += abs(score[1]-querry_scores[score[0]])
                 else:
-                    totalScore +=0.1
-            scoreDifferences[entry['VideoID']]=totalScore
+                    total_score +=0.1
+            score_differences[entry['VideoID']]=total_score
     
     import operator    
-    sortedScores = sorted(scoreDifferences.items(), key=operator.itemgetter(1))
+    sorted_scores = sorted(score_differences.items(), key=operator.itemgetter(1))
     
     result = ''
     # Creating a string with the top 5 transcripts with their scores.
-    for score in sortedScores[:5]:
+    for score in sorted_scores[:5]:
         result = result + str(score) +'\n'   
     return result
 
@@ -94,7 +96,7 @@ for i in range(1,nrOfTranscriptsToProcess):
         videoIdDictionary[nr]=i
         nr+=1
         documents.append(preprocessedTranscript)
-        wordList = re.sub("[^\w]", " ",  preprocessedTranscript).split()
+        wordList = re.sub(word_list_sub_syntax, " ",  preprocessedTranscript).split()
         words = []
         for word in wordList:
             words.append(word)
@@ -146,7 +148,7 @@ querryDataFrame = pd.DataFrame(columns=['VideoID','Assigned Cluster','LDA Scores
 
 for index, document in enumerate(embeddedDocuments):
         prediction = model.predict(document.reshape(1,-1))
-        wordList = re.sub("[^\w]", " ",  documents[index]).split()
+        wordList = re.sub(word_list_sub_syntax, " ",  documents[index]).split()
         words = []
         for word in wordList:
             words.append(word)

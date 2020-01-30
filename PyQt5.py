@@ -13,19 +13,19 @@ from Source import *
 # Function that gets called when the "Search" button is pressed
 def on_button_clicked():
     query = application.ui.textEdit.toPlainText()
-    results = resultForQuery(query)
+    results = result_for_query(query)
     application.ui.textBrowser.setText('Ranked list of transcripts (transcript ID and score)\n'+results)
 
 #The class for the QT5 Window
-class mywindow(QtWidgets.QMainWindow):
+class MyWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        super(mywindow, self).__init__()    
+        super(MyWindow, self).__init__()    
         self.ui = Ui_MainWindow()    
         self.ui.setupUi(self)    
 
 #Code that initializes the GUI  
 app = QtWidgets.QApplication([])
-application = mywindow()
+application = MyWindow()
 application.ui.pushButton.clicked.connect(on_button_clicked)
 application.show()
 sys.exit(app.exec())
