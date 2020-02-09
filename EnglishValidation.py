@@ -21,18 +21,16 @@ import urllib.request
 from bs4 import BeautifulSoup
 import urllib
 
-word_list_sub_syntax = "[^\w]"
-
-def lda_results_for_cluster(cluster):
+def ldaResultsForCluster(cluster):
     for idx, topic in lda_models[cluster].print_topics(-1):
         print('Topic: {} \nWords: {}'.format(idx, topic))
 
-def show_dictionary_words(dictionary_number,nr_of_words_to_show):
+def showDictionaryWords(dictionaryNumber,nrOfWordsToShow):
     count = 0
-    for k, v in dictionary[dictionary_number].iteritems():
+    for k, v in dictionary[dictionaryNumber].iteritems():
         print(k, v)
         count += 1
-        if count > nr_of_words_to_show:
+        if count > nrOfWordsToShow:
             break
 
 def preprocess(text):
@@ -42,16 +40,16 @@ def preprocess(text):
             result=result+' '+token
     return result
 
-def get_english_transcript_for_id(video_id):
-    transcript_link = "https://media.upv.es/rest/plugins/admin-plugin-translectures/dfxp/"+data[video_id]["_id"]+"/en"
+def getEnglishTranscriptForId(videoId):
+    transcriptLink = "https://media.upv.es/rest/plugins/admin-plugin-translectures/dfxp/"+data[videoId]["_id"]+"/en"
     try:
-        uf = urllib.request.urlopen(transcript_link)
+        uf = urllib.request.urlopen(transcriptLink)
     except:
         print("Transcript ", i," didn't work.")
     html = uf.read()
-    raw_text = BeautifulSoup(html).get_text()
+    rawText = BeautifulSoup(html).get_text()
     result = ""
-    for token in gensim.utils.simple_preprocess(raw_text):
+    for token in gensim.utils.simple_preprocess(rawText):
         result=result+' '+token
     return result
 
@@ -79,7 +77,7 @@ for i in range(1,nrOfTranscriptsToProcess):
         videoIdDictionary[nr]=i
         nr+=1
         documents.append(preprocessedTranscript)
-        wordList = re.sub(word_list_sub_syntax, " ",  preprocessedTranscript).split()
+        wordList = re.sub("[^\w]", " ",  preprocessedTranscript).split()
         words = []
         for word in wordList:
             words.append(word)
@@ -131,7 +129,7 @@ querryDataFrame = pd.DataFrame(columns=['VideoID','Assigned Cluster','LDA Scores
 
 for index, document in enumerate(embeddedDocuments):
         prediction = model.predict(document.reshape(1,-1))
-        wordList = re.sub(word_list_sub_syntax, " ",  documents[index]).split()
+        wordList = re.sub("[^\w]", " ",  documents[index]).split()
         words = []
         for word in wordList:
             words.append(word)
@@ -147,7 +145,7 @@ with tf.Session() as session:
     session.run([tf.global_variables_initializer(), tf.tables_initializer()])
     embeddedQuery = session.run(embed([querry]))
 querryCluster = model.predict(embeddedQuery)[0]
-wordList = re.sub(word_list_sub_syntax, " ", querry).split()
+wordList = re.sub("[^\w]", " ", querry).split()
 words = []
 for word in wordList:
     words.append(word)
@@ -175,4 +173,4 @@ sortedScores = sorted(scoreDifferences.items(), key=operator.itemgetter(1))
 # Priting the top 5 transcripts with their scores.
 for score in sortedScores[:3]:
     print(score)
-    print(get_english_transcript_for_id(score[0]))
+    print(getEnglishTranscriptForId(score[0]))
